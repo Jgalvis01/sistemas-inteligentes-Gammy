@@ -2,6 +2,14 @@
 
 Gammy es un agente de inteligencia artificial adversarial que juega Gardner Minichess, una variante compacta del ajedrez de 5×5 donde cada lado comienza con un conjunto completo de piezas (rey, reina, torre, alfil, caballo y cinco peones). El agente utiliza algoritmos clásicos de búsqueda para seleccionar el mejor movimiento en cada turno.
 
+## Equipo
+
+- Valeria Gustin
+- Jeysa Blandón
+- Sara Tabares
+- Julian Galvis
+- Santiago Salazar
+
 ## Descripción del problema
 
 Gardner Minichess es una variante del ajedrez que se juega en un tablero de 5×5. Cada jugador controla hasta 10 piezas y el movimiento de las piezas sigue las reglas estándar del ajedrez. El tamaño reducido del tablero hace que el juego sea manejable para agentes basados en búsqueda, mientras conserva la profundidad táctica que hace desafiante al ajedrez.
