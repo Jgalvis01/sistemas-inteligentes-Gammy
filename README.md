@@ -36,6 +36,22 @@ python proyecto.py --tests
 - gammy/tests.py: Seis escenarios y ejecutor de pruebas
 - proyecto.py: Punto de entrada CLI
 
+## Justificación técnica
+
+**¿Por qué Minimax con poda Alfa-Beta?**
+
+Gardner Minichess es un juego de suma cero, de información perfecta y para dos jugadores: exactamente el tipo de entorno para el cual fue diseñado el algoritmo Minimax. La poda Alfa-Beta elimina ramas que no pueden afectar la decisión final, permitiendo que el agente alcance mayores profundidades de búsqueda sin requerir cómputo adicional. A profundidad 4, Alfa-Beta normalmente explora muchos menos nodos que Minimax puro, mientras devuelve el mismo movimiento óptimo.
+
+**¿Por qué esta heurística?**
+
+La función heurística del agente combina cuatro criterios ponderados:
+
+```
+h(s) = wM·fM(s) + wC·fC(s) + wK·fK(s) + wMov·fMov(s)
+```
+
+Dado que no es viable realizar una búsqueda exhaustiva hasta estados terminales en cada turno, la heurística aproxima la calidad de una posición. Los cuatro criterios (material, control del centro, seguridad del rey y movilidad) están bien establecidos en la literatura de IA aplicada al ajedrez y representan los aspectos más decisivos de una posición en Gardner Minichess. Su combinación ponderada permite que Gammy equilibre ganancias materiales a corto plazo con fortaleza posicional a largo plazo.
+
 ## Metodología de Evaluación
 
 - **Tasa de victoria:** porcentaje de partidas ganadas contra un agente aleatorio y un agente voraz.
