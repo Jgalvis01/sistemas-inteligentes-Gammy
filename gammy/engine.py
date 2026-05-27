@@ -1,3 +1,10 @@
+"""Motor de reglas del juego Gardner Minichess 5x5.
+
+Implementa la generación de movimientos legales para cada tipo de pieza,
+la detección de jaque y jaque mate, la aplicación de movimientos al tablero,
+y las condiciones de finalización de partida (jaque mate, tablas, repetición).
+"""
+
 from __future__ import annotations
 
 from typing import List, Optional, Tuple
@@ -14,10 +21,12 @@ from .model import GameState, Move, Piece, copy_board, in_bounds, state_signatur
 
 
 def opponent(color: str) -> str:
+    """Retorna el color del oponente."""
     return "black" if color == "white" else "white"
 
 
 def find_king(state: GameState, color: str) -> Optional[Tuple[int, int]]:
+    """Busca la posición del rey del color indicado en el tablero."""
     for row in range(BOARD_SIZE):
         for col in range(BOARD_SIZE):
             piece = state.board[row][col]
@@ -27,6 +36,7 @@ def find_king(state: GameState, color: str) -> Optional[Tuple[int, int]]:
 
 
 def is_square_attacked(state: GameState, row: int, col: int, by_color: str) -> bool:
+    """Determina si una casilla está siendo atacada por alguna pieza del color indicado."""
     board = state.board
 
     # Pawn attacks
@@ -82,6 +92,7 @@ def is_square_attacked(state: GameState, row: int, col: int, by_color: str) -> b
 
 
 def is_in_check(state: GameState, color: str) -> bool:
+    """Verifica si el rey del color indicado está en jaque."""
     king_pos = find_king(state, color)
     if not king_pos:
         return False
@@ -89,6 +100,7 @@ def is_in_check(state: GameState, color: str) -> bool:
 
 
 def generate_legal_moves(state: GameState, color: Optional[str] = None) -> List[Move]:
+    """Genera todos los movimientos legales para el color dado, filtrando los que dejan al rey en jaque."""
     color = color or state.turn
     moves: List[Move] = []
     for row in range(BOARD_SIZE):
@@ -104,6 +116,7 @@ def generate_legal_moves(state: GameState, color: Optional[str] = None) -> List[
 
 
 def generate_piece_moves(state: GameState, row: int, col: int) -> List[Move]:
+    """Genera los movimientos posibles (sin filtro de legalidad) para la pieza en la posición dada."""
     piece = state.board[row][col]
     if not piece:
         return []
@@ -125,6 +138,7 @@ def generate_piece_moves(state: GameState, row: int, col: int) -> List[Move]:
 
 
 def pawn_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos del peón: avance simple, doble, captura diagonal y promoción."""
     moves: List[Move] = []
     direction = 1 if piece.color == "white" else -1
     start_row = 1 if piece.color == "white" else 3
@@ -158,6 +172,7 @@ def pawn_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]
 
 
 def knight_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos del caballo (saltos en 'L')."""
     moves: List[Move] = []
     board = state.board
     for dr, dc in KNIGHT_OFFSETS:
@@ -173,18 +188,22 @@ def knight_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Mov
 
 
 def bishop_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos del alfil (diagonales)."""
     return sliding_moves(state, row, col, piece, DIR_DIAG)
 
 
 def rook_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos de la torre (ortogonales)."""
     return sliding_moves(state, row, col, piece, DIR_ORTHO)
 
 
 def queen_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos de la reina (ortogonales + diagonales)."""
     return sliding_moves(state, row, col, piece, DIR_ORTHO + DIR_DIAG)
 
 
 def king_moves(state: GameState, row: int, col: int, piece: Piece) -> List[Move]:
+    """Genera movimientos del rey (una casilla en cualquier dirección)."""
     moves: List[Move] = []
     board = state.board
     for dr, dc in KING_OFFSETS:
@@ -206,6 +225,7 @@ def sliding_moves(
     piece: Piece,
     directions: List[Tuple[int, int]],
 ) -> List[Move]:
+    """Genera movimientos deslizantes en las direcciones dadas (usado por torre, alfil y reina)."""
     moves: List[Move] = []
     board = state.board
     for dr, dc in directions:
@@ -224,6 +244,7 @@ def sliding_moves(
 
 
 def apply_move(state: GameState, move: Move, validate: bool = True) -> GameState:
+    """Aplica un movimiento al estado y retorna el nuevo estado resultante."""
     if validate:
         legal = generate_legal_moves(state, state.turn)
         if not any(m.as_tuple() == move.as_tuple() for m in legal):
@@ -250,12 +271,14 @@ def apply_move(state: GameState, move: Move, validate: bool = True) -> GameState
 
 
 def is_threefold_repetition(state: GameState) -> bool:
+    """Detecta si el estado actual se ha repetido 3 veces (tablas por repetición)."""
     signature = state_signature(state)
     occurrences = sum(1 for past in state.state_history if past == signature)
     return occurrences >= 2
 
 
 def get_terminal_status(state: GameState) -> Tuple[bool, Optional[str], str]:
+    """Verifica si la partida ha terminado. Retorna (es_terminal, ganador, razón)."""
     if state.halfmove_clock >= 50:
         return True, None, "50-move rule"
     if is_threefold_repetition(state):

@@ -1,3 +1,14 @@
+"""Escenarios de prueba para validar el comportamiento de la IA de Gammy.
+
+Define 6 escenarios de prueba basados en los PDFs del proyecto:
+1. Jaque mate en 1 movimiento
+2. Defensa ante amenaza inmediata
+3. Captura de pieza de mayor valor
+4. Control del centro en apertura
+5. Comportamiento con profundidad variable
+6. Gammy vs agente aleatorio
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,6 +22,8 @@ from .model import GameState, Move, Piece, board_to_text, initial_state
 
 @dataclass
 class Scenario:
+    """Define un escenario de prueba con un nombre, descripción y estado inicial."""
+
     name: str
     description: str
     state: GameState
@@ -18,6 +31,20 @@ class Scenario:
 
 @dataclass
 class TestResult:
+    """Resultado de ejecutar una prueba sobre un escenario.
+
+    Attributes:
+        name: Nombre de la prueba.
+        description: Descripción del escenario.
+        passed: Si la prueba pasó o no.
+        expected: Resultado esperado.
+        obtained: Resultado obtenido.
+        move: Movimiento elegido por la IA.
+        eval_before: Evaluación heurística antes del movimiento.
+        eval_after: Evaluación heurística después del movimiento.
+        state_lines: Representación textual del tablero.
+    """
+
     name: str
     description: str
     passed: bool
@@ -31,6 +58,7 @@ class TestResult:
 
 
 def parse_layout(rows: List[str], turn: str) -> GameState:
+    """Construye un GameState a partir de una representación textual del tablero."""
     board: List[List[Optional[Piece]]] = [[None for _ in range(5)] for _ in range(5)]
     if len(rows) != 5:
         raise ValueError("Expected 5 rows for layout")
@@ -58,6 +86,7 @@ def parse_layout(rows: List[str], turn: str) -> GameState:
 
 
 def scenario_mate_in_one() -> Scenario:
+    """Escenario donde blancas pueden dar jaque mate en un solo movimiento."""
     rows = [
         "-- -- -- -- --",
         "-- -- -- -- --",
@@ -74,6 +103,7 @@ def scenario_mate_in_one() -> Scenario:
 
 
 def scenario_defense() -> Scenario:
+    """Escenario donde blancas deben defenderse de una amenaza inmediata."""
     rows = [
         "-- -- -- Qb Kb",
         "-- -- -- -- --",
@@ -90,6 +120,7 @@ def scenario_defense() -> Scenario:
 
 
 def scenario_capture_queen() -> Scenario:
+    """Escenario donde blancas pueden capturar la reina enemiga."""
     rows = [
         "Tb -- -- -- Kb",
         "-- -- -- -- --",
@@ -106,6 +137,7 @@ def scenario_capture_queen() -> Scenario:
 
 
 def scenario_center_opening() -> Scenario:
+    """Escenario de apertura para evaluar si la IA prioriza el control del centro."""
     return Scenario(
         name="Prueba 4",
         description="Control del centro en apertura",
@@ -114,6 +146,7 @@ def scenario_center_opening() -> Scenario:
 
 
 def scenario_depth_variation() -> Scenario:
+    """Escenario para evaluar cómo varía el comportamiento según la profundidad de búsqueda."""
     rows = [
         "Tb -- -- -- Kb",
         "-- Pb Pb -- --",
@@ -130,6 +163,7 @@ def scenario_depth_variation() -> Scenario:
 
 
 def scenario_vs_random() -> Scenario:
+    """Escenario de partida completa: Gammy vs un agente que juega al azar."""
     return Scenario(
         name="Prueba 6",
         description="Gammy vs agente aleatorio",
@@ -138,6 +172,7 @@ def scenario_vs_random() -> Scenario:
 
 
 def get_scenarios() -> Dict[str, Scenario]:
+    """Retorna un diccionario con todos los escenarios de prueba disponibles."""
     return {
         "mate_in_one": scenario_mate_in_one(),
         "defense": scenario_defense(),
@@ -149,6 +184,7 @@ def get_scenarios() -> Dict[str, Scenario]:
 
 
 def run_test_mate_in_one(scenario: Scenario, depth: int) -> TestResult:
+    """Prueba 1: Verifica que la IA encuentre jaque mate en 1 movimiento."""
     state = scenario.state
     eval_before = evaluate_state(state, "white")
     decision = choose_best_move(state, depth, "white")
@@ -183,6 +219,7 @@ def run_test_mate_in_one(scenario: Scenario, depth: int) -> TestResult:
 
 
 def run_test_defense(scenario: Scenario, depth: int) -> TestResult:
+    """Prueba 2: Verifica que la IA se defienda correctamente ante una amenaza."""
     state = scenario.state
     eval_before = evaluate_state(state, "white")
     decision = choose_best_move(state, depth, "white")
@@ -216,6 +253,7 @@ def run_test_defense(scenario: Scenario, depth: int) -> TestResult:
 
 
 def run_test_capture_queen(scenario: Scenario, depth: int) -> TestResult:
+    """Prueba 3: Verifica que la IA capture la pieza de mayor valor disponible."""
     state = scenario.state
     eval_before = evaluate_state(state, "white")
 
@@ -259,6 +297,7 @@ def run_test_capture_queen(scenario: Scenario, depth: int) -> TestResult:
 
 
 def run_test_center_opening(scenario: Scenario, depth: int) -> TestResult:
+    """Prueba 4: Verifica que la IA mejore su control del centro en la apertura."""
     state = scenario.state
     eval_before = evaluate_state(state, "white")
     decision = choose_best_move(state, 1, "white")
@@ -296,6 +335,7 @@ def run_test_center_opening(scenario: Scenario, depth: int) -> TestResult:
 
 
 def run_test_depth_variation(scenario: Scenario) -> TestResult:
+    """Prueba 5: Verifica que el tiempo de cómputo crece con la profundidad."""
     state = scenario.state
     results = []
     passed = True
@@ -331,11 +371,17 @@ def run_test_depth_variation(scenario: Scenario) -> TestResult:
 
 
 def run_test_vs_random(scenario: Scenario, games: int = 20, depth: int = 3) -> TestResult:
+    """Prueba 6: Verifica que Gammy gane consistentemente contra un agente aleatorio."""
     from random import choice
+
 
     wins = 0
     losses = 0
     draws = 0
+
+
+    start = perf_counter()
+
 
     for _ in range(games):
         state = scenario.state.clone()
@@ -352,9 +398,11 @@ def run_test_vs_random(scenario: Scenario, games: int = 20, depth: int = 3) -> T
                     draws += 1
                 break
 
+
             if ply >= 200:
                 draws += 1
                 break
+
 
             if state.turn == "white":
                 decision = choose_best_move(state, depth, "white")
@@ -369,14 +417,21 @@ def run_test_vs_random(scenario: Scenario, games: int = 20, depth: int = 3) -> T
                     break
                 state = apply_move(state, choice(moves), validate=True)
 
+
             ply += 1
 
-    passed = wins / games >= 0.90 and losses / games <= 0.02
-    obtained = f"wins={wins} losses={losses} draws={draws}"
 
+    elapsed = perf_counter() - start
+
+
+    win_rate = wins / games * 100
+    loss_rate = losses / games * 100
+    passed = win_rate >= 90 and loss_rate <= 2
+    obtained = f"wins={wins} losses={losses} draws={draws} | win_rate={win_rate:.1f}% loss_rate={loss_rate:.1f}% | time={elapsed:.2f}s"
+ 
     return TestResult(
         scenario.name,
-        scenario.description,
+        f"{scenario.description} (depth={depth}, games={games})",
         passed,
         "Win rate >= 90%, losses <= 2%",
         obtained,
@@ -387,15 +442,20 @@ def run_test_vs_random(scenario: Scenario, games: int = 20, depth: int = 3) -> T
     )
 
 
+
+
 def run_all_tests(depth: int = 3) -> List[TestResult]:
+    """Ejecuta todas las pruebas y retorna la lista de resultados."""
     scenarios = get_scenarios()
     results: List[TestResult] = []
+
 
     results.append(run_test_mate_in_one(scenarios["mate_in_one"], depth))
     results.append(run_test_defense(scenarios["defense"], depth))
     results.append(run_test_capture_queen(scenarios["capture_queen"], depth))
     results.append(run_test_center_opening(scenarios["center_opening"], depth))
     results.append(run_test_depth_variation(scenarios["depth_variation"]))
-    results.append(run_test_vs_random(scenarios["vs_random"], games=20, depth=3))
-
+    for d in (1, 2, 3):
+        results.append(run_test_vs_random(scenarios["vs_random"], games=20, depth=d))
+ 
     return results

@@ -1,10 +1,18 @@
+"""Interfaz gráfica de Gammy (Gardner Minichess 5x5).
+
+Implementa la ventana principal con el tablero visual, panel de controles,
+historial de movimientos y log de decisiones de la IA. Usa PySide6 (Qt)
+para la renderización y muestra imágenes PNG de las piezas en el tablero.
+"""
+
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -28,31 +36,74 @@ from .engine import apply_move, generate_legal_moves, get_terminal_status, is_in
 from .model import GameState, Move, Piece, initial_state, move_to_notation
 from .tests import get_scenarios, run_all_tests
 
+# Path to the images directory (sibling of the gammy package folder)
+_IMAGES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "images")
+
+# Mapping from piece kind to the base image filename
+_KIND_TO_FILE: Dict[str, str] = {
+    "T": "tower",
+    "C": "horse",
+    "A": "bishop",
+    "Q": "queen",
+    "K": "king",
+    "P": "paw",
+}
+
 
 @dataclass
 class LoggedDecision:
+    """Registro de una decisión tomada por la IA durante la partida."""
+
     move: Move
     value: float
     nodes: int
 
 
 class BoardWidget(QWidget):
+    """Widget que representa el tablero 5x5 con imágenes de piezas.
+
+    Muestra las piezas como imágenes PNG cargadas desde la carpeta 'images/'.
+    Soporta resaltado de casillas para el último movimiento y jaque.
+    """
+    # Size for each piece image (fits inside the 70x70 cell with some padding)
+    _ICON_SIZE = 58
+
     def __init__(self) -> None:
         super().__init__()
         self.grid = QGridLayout(self)
         self.grid.setSpacing(0)
         self.labels: List[List[QLabel]] = []
+        self._pixmap_cache: Dict[str, QPixmap] = {}
         self._init_grid()
 
+    def _load_pixmap(self, piece: Piece) -> QPixmap:
+        """Load and cache a scaled QPixmap for the given piece."""
+        cache_key = f"{piece.color}_{piece.kind}"
+        if cache_key not in self._pixmap_cache:
+            base_name = _KIND_TO_FILE.get(piece.kind, piece.kind.lower())
+            if piece.color == "black":
+                filename = f"Black_{base_name}.png"
+            else:
+                filename = f"{base_name}.png"
+            path = os.path.join(_IMAGES_DIR, filename)
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                pixmap = pixmap.scaled(
+                    self._ICON_SIZE, self._ICON_SIZE,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+            self._pixmap_cache[cache_key] = pixmap
+        return self._pixmap_cache[cache_key]
+
     def _init_grid(self) -> None:
-        font = QFont("Fira Sans", 18, QFont.Bold)
+        """Crea la cuadrícula de 5x5 QLabels con colores de casilla alternados."""
         for row in range(5):
             row_labels: List[QLabel] = []
             for col in range(5):
                 label = QLabel("", self)
                 label.setAlignment(Qt.AlignCenter)
                 label.setFixedSize(70, 70)
-                label.setFont(font)
                 label.setProperty("coord", (row, col))
                 self.grid.addWidget(label, 4 - row, col)
                 row_labels.append(label)
@@ -67,6 +118,7 @@ class BoardWidget(QWidget):
         self._apply_square_colors()
 
     def _apply_square_colors(self) -> None:
+        """Restaura los colores originales de las casillas (claro/oscuro)."""
         for row in range(5):
             for col in range(5):
                 label = self.labels[row][col]
@@ -78,6 +130,7 @@ class BoardWidget(QWidget):
         self._refresh_styles()
 
     def _refresh_styles(self) -> None:
+        """Fuerza la actualización visual de los estilos Qt en todas las casillas."""
         for row in range(5):
             for col in range(5):
                 label = self.labels[row][col]
@@ -85,14 +138,22 @@ class BoardWidget(QWidget):
                 label.style().polish(label)
 
     def set_state(self, state: GameState) -> None:
+        """Actualiza el tablero visual con el estado actual de la partida."""
         for row in range(5):
             for col in range(5):
                 piece = state.board[row][col]
-                text = self._piece_text(piece)
-                self.labels[row][col].setText(text)
+                label = self.labels[row][col]
+                if piece:
+                    pixmap = self._load_pixmap(piece)
+                    label.setPixmap(pixmap)
+                    label.setText("")
+                else:
+                    label.setPixmap(QPixmap())  # clear pixmap
+                    label.setText("")
         self._apply_square_colors()
 
     def highlight_move(self, move: Optional[Move], check_square: Optional[Tuple[int, int]]) -> None:
+        """Resalta las casillas del último movimiento y la casilla de jaque."""
         self._apply_square_colors()
         if move:
             self.labels[move.from_row][move.from_col].setProperty("highlight", "from")
@@ -103,6 +164,7 @@ class BoardWidget(QWidget):
         self._refresh_styles()
 
     def animate_move(self, before: GameState, after: GameState, move: Move, duration_ms: int) -> None:
+        """Anima un movimiento mostrando el estado antes y después con un retardo."""
         self.set_state(before)
         self.highlight_move(move, None)
 
@@ -112,14 +174,13 @@ class BoardWidget(QWidget):
 
         QTimer.singleShot(max(1, duration_ms // 2), apply_destination)
 
-    @staticmethod
-    def _piece_text(piece: Optional[Piece]) -> str:
-        if not piece:
-            return ""
-        return piece.kind if piece.color == "white" else piece.kind.lower()
-
 
 class MainWindow(QMainWindow):
+    """Ventana principal de la aplicación Gammy.
+
+    Contiene el tablero, paneles de estado, controles de juego (Start, Pause,
+    Step, Back, Reset), selector de escenarios y botón de pruebas.
+    """
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Gammy - Gardner Minichess 5x5")
@@ -136,6 +197,7 @@ class MainWindow(QMainWindow):
         self._refresh_ui()
 
     def _build_ui(self) -> None:
+        """Construye el layout principal: tablero a la izquierda, panel de controles a la derecha."""
         central = QWidget(self)
         layout = QHBoxLayout(central)
         layout.addWidget(self.board_widget, stretch=2)
@@ -150,6 +212,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
     def _build_status_panel(self) -> QVBoxLayout:
+        """Crea el panel superior con información del turno, evaluación y estado."""
         panel = QVBoxLayout()
         self.turn_label = QLabel("Turn: white")
         self.eval_label = QLabel("Eval (white): 0")
@@ -165,6 +228,7 @@ class MainWindow(QMainWindow):
         return panel
 
     def _build_controls_panel(self) -> QGroupBox:
+        """Crea el panel de controles: botones, profundidad, velocidad y escenarios."""
         group = QGroupBox("Controls")
         layout = QVBoxLayout(group)
 
@@ -235,6 +299,7 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_history_panel(self) -> QGroupBox:
+        """Crea el panel de historial de movimientos de la partida."""
         group = QGroupBox("Move History")
         layout = QVBoxLayout(group)
         self.history_list = QListWidget()
@@ -242,6 +307,7 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_log_panel(self) -> QGroupBox:
+        """Crea el panel de log de decisiones de la IA."""
         group = QGroupBox("Decision Log")
         layout = QVBoxLayout(group)
         self.log_output = QPlainTextEdit()
@@ -250,10 +316,12 @@ class MainWindow(QMainWindow):
         return group
 
     def start_auto(self) -> None:
+        """Inicia el modo automático donde la IA juega ambos lados."""
         if not self.auto_timer.isActive():
             self.auto_timer.start(self.speed_slider.value())
 
     def pause_auto(self) -> None:
+        """Pausa el modo automático."""
         if self.auto_timer.isActive():
             self.auto_timer.stop()
 
@@ -262,6 +330,7 @@ class MainWindow(QMainWindow):
             self.pause_auto()
 
     def step_forward(self) -> bool:
+        """Avanza un movimiento. Calcula con la IA si es el último estado conocido."""
         state = self.state_history[self.current_index]
         terminal, _, _ = get_terminal_status(state)
         if terminal:
@@ -289,6 +358,7 @@ class MainWindow(QMainWindow):
         return True
 
     def step_back(self) -> None:
+        """Retrocede un movimiento en el historial."""
         if self.current_index > 0:
             self.current_index -= 1
             self._refresh_ui()
@@ -302,6 +372,7 @@ class MainWindow(QMainWindow):
         self._refresh_ui()
 
     def reset_game(self) -> None:
+        """Reinicia la partida al estado inicial."""
         self.state_history = [initial_state()]
         self.decision_log = []
         self.current_index = 0
@@ -310,6 +381,7 @@ class MainWindow(QMainWindow):
         self._refresh_ui()
 
     def load_scenario(self) -> None:
+        """Carga el escenario seleccionado en el combo box."""
         data = self.scenario_box.currentData()
         if data == "initial":
             self.reset_game()
@@ -323,6 +395,7 @@ class MainWindow(QMainWindow):
         self._refresh_ui()
 
     def run_tests(self) -> None:
+        """Ejecuta todas las pruebas y muestra los resultados en el log."""
         results = run_all_tests(depth=3)
         lines = []
         for result in results:
@@ -348,6 +421,7 @@ class MainWindow(QMainWindow):
             self.auto_timer.start(self.speed_slider.value())
 
     def _refresh_ui(self, skip_board: bool = False) -> None:
+        """Actualiza toda la interfaz: tablero, etiquetas de estado, historial y log."""
         state = self.state_history[self.current_index]
         if not skip_board:
             self.board_widget.set_state(state)
@@ -395,6 +469,7 @@ class MainWindow(QMainWindow):
 
 
 def run() -> None:
+    """Punto de entrada de la interfaz gráfica. Crea la aplicación Qt y muestra la ventana."""
     app = QApplication([])
     window = MainWindow()
     window.show()

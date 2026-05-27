@@ -1,3 +1,9 @@
+"""Inteligencia artificial para Gammy (Gardner Minichess 5x5).
+
+Implementa la función de evaluación heurística del tablero y el algoritmo
+Minimax con poda alfa-beta para seleccionar el mejor movimiento.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,12 +16,25 @@ from .model import GameState, Move, Piece
 
 @dataclass
 class Decision:
+    """Resultado de la búsqueda del mejor movimiento.
+
+    Attributes:
+        move: Mejor movimiento encontrado (None si no hay movimientos legales).
+        value: Valor heurístico del movimiento.
+        nodes: Cantidad de nodos explorados en la búsqueda.
+    """
+
     move: Optional[Move]
     value: float
     nodes: int
 
 
 def evaluate_state(state: GameState, perspective: str) -> float:
+    """Evalúa el estado del tablero desde la perspectiva del color dado.
+
+    Combina cuatro heurísticas ponderadas: material, control del centro,
+    seguridad del rey y movilidad.
+    """
     terminal, winner, reason = get_terminal_status(state)
     if terminal:
         if reason == "checkmate":
@@ -36,6 +55,7 @@ def evaluate_state(state: GameState, perspective: str) -> float:
 
 
 def material_score(state: GameState, perspective: str) -> float:
+    """Calcula la diferencia de material (valor de piezas propias - oponente)."""
     own = 0
     opp = 0
     for row in state.board:
@@ -51,6 +71,7 @@ def material_score(state: GameState, perspective: str) -> float:
 
 
 def center_score(state: GameState, perspective: str) -> float:
+    """Calcula la diferencia de piezas en casillas centrales del tablero."""
     own = 0
     opp = 0
     for (row, col) in CENTER_SQUARES:
@@ -65,12 +86,14 @@ def center_score(state: GameState, perspective: str) -> float:
 
 
 def king_safety_score(state: GameState, perspective: str) -> float:
+    """Calcula la diferencia de seguridad del rey (piezas aliadas adyacentes)."""
     own = adjacent_friends(state, perspective)
     opp = adjacent_friends(state, opponent(perspective))
     return float(own - opp)
 
 
 def adjacent_friends(state: GameState, color: str) -> int:
+    """Cuenta cuántas piezas aliadas rodean al rey del color dado."""
     from .constants import BOARD_SIZE, KING_OFFSETS
     from .engine import find_king
 
@@ -89,12 +112,18 @@ def adjacent_friends(state: GameState, color: str) -> int:
 
 
 def mobility_score(state: GameState, perspective: str) -> float:
+    """Calcula la diferencia de movilidad (movimientos legales propios - oponente)."""
     own = len(generate_legal_moves(state, perspective))
     opp = len(generate_legal_moves(state, opponent(perspective)))
     return float(own - opp)
 
 
 def choose_best_move(state: GameState, depth: int, perspective: str) -> Decision:
+    """Selecciona el mejor movimiento usando Minimax con poda alfa-beta.
+
+    Evalúa todos los movimientos legales a la profundidad indicada y
+    retorna el movimiento con mejor evaluación heurística.
+    """
     moves = generate_legal_moves(state, state.turn)
     if not moves:
         return Decision(None, evaluate_state(state, perspective), 1)
@@ -126,6 +155,12 @@ def minimax(
     beta: float,
     perspective: str,
 ) -> Tuple[float, int]:
+    """Algoritmo Minimax con poda alfa-beta.
+
+    Explora el árbol de juego recursivamente, maximizando para el jugador
+    de perspectiva y minimizando para el oponente. La poda alfa-beta
+    descarta ramas que no pueden mejorar el resultado.
+    """
     terminal, _, _ = get_terminal_status(state)
     if depth == 0 or terminal:
         return evaluate_state(state, perspective), 1
@@ -160,6 +195,7 @@ def minimax(
 
 
 def apply_move_no_validation(state: GameState, move: Move) -> GameState:
+    """Aplica un movimiento sin validar legalidad (usado internamente por Minimax)."""
     from .engine import apply_move
 
     return apply_move(state, move, validate=False)
