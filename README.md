@@ -64,7 +64,7 @@ Dado que no es viable realizar una búsqueda exhaustiva hasta estados terminales
 
 - **Tasa de victoria:** porcentaje de partidas ganadas contra un agente aleatorio y un agente voraz.
 - **Nodos explorados:** comparación entre Minimax puro y con poda Alfa-Beta a igual profundidad.
-- **Profundidad vs. tiempo:** resultados comparados en profundidades 3, 4 y 5.
+- **Profundidad vs. tiempo:** resultados comparados en profundidades 1, 2 y 3.
 - **Escenarios de prueba:** seis casos predefinidos en `tests.py` (jaque mate en 1, capturas forzadas, detección de empate).
 
 ## Declaración sobre el uso de IA generativa
