@@ -12,7 +12,7 @@ from gammy.tests import run_all_tests
 
 
 def print_test_results() -> None:
-    """Ejecuta las pruebas e imprime los resultados en consola."""
+    #Ejecuta las pruebas e imprime los resultados en consola.
 	results = run_all_tests(depth=3)
 	for result in results:
 		status = "PASS" if result.passed else "FAIL"
@@ -31,7 +31,7 @@ def print_test_results() -> None:
 
 
 def main() -> None:
-    """Función principal: parsea argumentos y lanza la GUI o las pruebas."""
+    #Función principal: parsea argumentos y lanza la GUI o las pruebas.
 	parser = argparse.ArgumentParser(description="Gammy Gardner Minichess 5x5")
 	parser.add_argument(
 		"--tests",
